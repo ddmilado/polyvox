@@ -1,0 +1,7 @@
+{
+  "imports": {
+    "crewai": "npm:crewai@2.0.0",
+    "openai": "npm:openai@4.0.0",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.38.4"
+  }
+}
