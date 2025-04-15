@@ -1,5 +1,6 @@
 import { createBrowserClient } from '@supabase/ssr'
 
+// Create a single supabase client for interacting with your database
 export const createClient = () => {
   return createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

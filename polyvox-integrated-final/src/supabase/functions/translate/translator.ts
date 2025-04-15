@@ -19,7 +19,8 @@ export async function runTranslation(args) {
     
     // Initialize OpenAI client
     const openai = new OpenAI({
-      apiKey: Deno.env.get('OPENAI_API_KEY')
+      apiKey: Deno.env.get('OPENAI_API_KEY'),
+      baseURL: 'https://api.openai.com/v1'
     });
     
     // Initialize Supabase client
@@ -35,7 +36,13 @@ export async function runTranslation(args) {
       verbose: true,
       allowDelegation: false,
       tools: [],
-      llm: openai
+      llm: {
+        provider: 'openai',
+        config: {
+          apiKey: Deno.env.get('OPENAI_API_KEY'),
+          model: 'gpt-4-turbo-preview'
+        }
+      }
     });
     
     const editor = new Agent({
@@ -45,7 +52,13 @@ export async function runTranslation(args) {
       verbose: true,
       allowDelegation: false,
       tools: [],
-      llm: openai
+      llm: {
+        provider: 'openai',
+        config: {
+          apiKey: Deno.env.get('OPENAI_API_KEY'),
+          model: 'gpt-4-turbo-preview'
+        }
+      }
     });
     
     // Define translation task
@@ -76,21 +89,65 @@ export async function runTranslation(args) {
     
     // Upload the translated text to Supabase storage
     const translatedFileName = `translated_${documentId}.txt`;
+    const storagePath = translatedFileName;
+    
+    console.log('Uploading translated file to path:', storagePath);
+    console.log('Translation result:', result);
+    
+    // Create a proper Blob with the correct content type
+    const blob = new Blob([result], { type: 'text/plain;charset=utf-8' });
+    
+    // First, try to delete the file if it exists
+    try {
+      await supabase
+        .storage
+        .from('translations')
+        .remove([storagePath]);
+    } catch (deleteError) {
+      console.log('No existing file to delete or delete failed:', deleteError);
+    }
+    
+    // Then upload the new file
     const { data: uploadData, error: uploadError } = await supabase
       .storage
       .from('translations')
-      .upload(translatedFileName, new Blob([result]));
+      .upload(storagePath, blob, {
+        contentType: 'text/plain;charset=utf-8',
+        upsert: true,
+        cacheControl: '3600'
+      });
     
     if (uploadError) {
+      console.error('Upload error:', uploadError);
       throw new Error(`Error uploading translated file: ${uploadError.message}`);
     }
     
-    // Update the translation record
+    console.log('File uploaded successfully:', uploadData);
+    
+    // Verify the file exists and is accessible
+    const { data: verifyData, error: verifyError } = await supabase
+      .storage
+      .from('translations')
+      .list();
+    
+    if (verifyError) {
+      console.error('Verification error:', verifyError);
+      throw new Error(`Failed to verify file upload: ${verifyError.message}`);
+    }
+    
+    const fileExists = verifyData?.some(file => file.name === storagePath);
+    if (!fileExists) {
+      throw new Error('File upload verification failed: File not found in storage');
+    }
+    
+    console.log('Files in storage:', verifyData);
+    
+    // Update the translation record with the exact file path
     const { error: updateError } = await supabase
       .from('translations')
       .update({
         status: 'completed',
-        translated_file_path: translatedFileName
+        translated_file_path: storagePath
       })
       .eq('id', documentId);
     
@@ -98,10 +155,23 @@ export async function runTranslation(args) {
       throw new Error(`Error updating translation record: ${updateError.message}`);
     }
     
+    // Verify the update
+    const { data: verifyUpdate, error: verifyUpdateError } = await supabase
+      .from('translations')
+      .select('translated_file_path')
+      .eq('id', documentId)
+      .single();
+    
+    if (verifyUpdateError) {
+      console.error('Verify update error:', verifyUpdateError);
+    } else {
+      console.log('Updated file path in database:', verifyUpdate?.translated_file_path);
+    }
+    
     return {
       success: true,
       document_id: documentId,
-      translated_file_path: translatedFileName
+      translated_file_path: storagePath
     };
   } catch (error) {
     console.error(`Translation error: ${error.message}`);

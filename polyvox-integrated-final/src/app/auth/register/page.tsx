@@ -1,134 +1,179 @@
 'use client'
 
-import { createClient } from '@/lib/supabase'
+import {
+  Box,
+  Button,
+  Container,
+  Divider,
+  FormControl,
+  FormLabel,
+  Heading,
+  Input,
+  Stack,
+  Text,
+  useColorModeValue,
+  VStack,
+  HStack,
+  Link,
+  useToast,
+} from '@chakra-ui/react'
+import { FiMail, FiLock, FiUser, FiGithub, FiTwitter } from 'react-icons/fi'
+import { FcGoogle } from 'react-icons/fc'
+import NextLink from 'next/link'
+import { signIn } from 'next-auth/react'
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 
 export default function RegisterPage() {
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-  const router = useRouter()
+  const [isLoading, setIsLoading] = useState(false)
+  const toast = useToast()
 
-  const handleRegister = async (e: React.FormEvent) => {
+  const bgColor = useColorModeValue('white', 'gray.800')
+  const textColor = useColorModeValue('gray.600', 'gray.400')
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    setLoading(true)
-    setError(null)
-
-    if (password !== confirmPassword) {
-      setError('Passwords do not match')
-      setLoading(false)
-      return
-    }
-
+    setIsLoading(true)
     try {
-      const supabase = createClient()
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ name, email, password }),
       })
 
-      if (error) {
-        throw error
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Something went wrong')
       }
 
-      // Show success message or redirect
-      router.push('/login?registered=true')
-    } catch (error: any) {
-      setError(error.message || 'An error occurred during registration')
+      toast({
+        title: 'Success',
+        description: 'Account created successfully! Please sign in.',
+        status: 'success',
+        duration: 5000,
+        isClosable: true,
+      })
+
+      // Redirect to login page
+      window.location.href = '/auth/login'
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error.message || 'An error occurred during registration',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      })
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
   return (
-    <>
-      <div className="text-center">
-        <h2 className="mt-6 text-3xl font-bold tracking-tight text-gray-900">
-          Create a new account
-        </h2>
-        <p className="mt-2 text-sm text-gray-600">
-          Or{' '}
-          <Link href="/login" className="font-medium text-indigo-600 hover:text-indigo-500">
-            sign in to your existing account
-          </Link>
-        </p>
-      </div>
+    <Container maxW="md" py={20}>
+      <VStack spacing={8}>
+        <VStack spacing={2} textAlign="center">
+          <Heading size="xl">Create Account</Heading>
+          <Text color={textColor}>
+            Join PolyVoxAI and start translating today
+          </Text>
+        </VStack>
 
-      {error && (
-        <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-          {error}
-        </div>
-      )}
+        <Box
+          w="100%"
+          bg={bgColor}
+          p={8}
+          borderRadius="lg"
+          boxShadow="md"
+        >
+          <form onSubmit={handleSubmit}>
+            <Stack spacing={6}>
+              <FormControl isRequired>
+                <FormLabel>Full Name</FormLabel>
+                <Input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Enter your full name"
+                  leftIcon={<FiUser />}
+                />
+              </FormControl>
 
-      <form className="mt-8 space-y-6" onSubmit={handleRegister}>
-        <div className="-space-y-px rounded-md shadow-sm">
-          <div>
-            <label htmlFor="email-address" className="sr-only">
-              Email address
-            </label>
-            <input
-              id="email-address"
-              name="email"
-              type="email"
-              autoComplete="email"
-              required
-              className="relative block w-full rounded-t-md border-0 py-1.5 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-              placeholder="Email address"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-          <div>
-            <label htmlFor="password" className="sr-only">
-              Password
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="new-password"
-              required
-              className="relative block w-full border-0 py-1.5 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-          <div>
-            <label htmlFor="confirm-password" className="sr-only">
-              Confirm Password
-            </label>
-            <input
-              id="confirm-password"
-              name="confirm-password"
-              type="password"
-              autoComplete="new-password"
-              required
-              className="relative block w-full rounded-b-md border-0 py-1.5 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-              placeholder="Confirm Password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-            />
-          </div>
-        </div>
+              <FormControl isRequired>
+                <FormLabel>Email</FormLabel>
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email"
+                  leftIcon={<FiMail />}
+                />
+              </FormControl>
 
-        <div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="group relative flex w-full justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:bg-indigo-400"
-          >
-            {loading ? 'Creating account...' : 'Create account'}
-          </button>
-        </div>
-      </form>
-    </>
+              <FormControl isRequired>
+                <FormLabel>Password</FormLabel>
+                <Input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Create a password"
+                  leftIcon={<FiLock />}
+                />
+              </FormControl>
+
+              <Button
+                type="submit"
+                colorScheme="blue"
+                size="lg"
+                isLoading={isLoading}
+              >
+                Create Account
+              </Button>
+
+              <HStack justify="center">
+                <Text>Already have an account?</Text>
+                <Link as={NextLink} href="/auth/login" color="blue.500">
+                  Sign in
+                </Link>
+              </HStack>
+
+              <Divider />
+
+              <VStack spacing={4}>
+                <Button
+                  w="100%"
+                  variant="outline"
+                  leftIcon={<FcGoogle />}
+                  onClick={() => signIn('google')}
+                >
+                  Continue with Google
+                </Button>
+                <Button
+                  w="100%"
+                  variant="outline"
+                  leftIcon={<FiGithub />}
+                  onClick={() => signIn('github')}
+                >
+                  Continue with GitHub
+                </Button>
+                <Button
+                  w="100%"
+                  variant="outline"
+                  leftIcon={<FiTwitter />}
+                  onClick={() => signIn('twitter')}
+                >
+                  Continue with Twitter
+                </Button>
+              </VStack>
+            </Stack>
+          </form>
+        </Box>
+      </VStack>
+    </Container>
   )
 }

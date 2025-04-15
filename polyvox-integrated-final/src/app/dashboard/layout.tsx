@@ -1,90 +1,132 @@
-import { type ReactNode } from 'react'
-import { Inter } from 'next/font/google'
-import '../globals.css'
-import { createClient } from '@/lib/supabase-server'
-import { redirect } from 'next/navigation'
+'use client'
 
-const inter = Inter({ subsets: ['latin'] })
+import { ReactNode, useEffect, useState } from 'react'
+import {
+  Box,
+  Flex,
+  HStack,
+  IconButton,
+  Button,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
+  useColorModeValue,
+  useDisclosure,
+  Stack,
+  Text,
+  Avatar,
+} from '@chakra-ui/react'
+import { FiMenu, FiX, FiSettings, FiLogOut } from 'react-icons/fi'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { signOut } from 'next-auth/react'
 
-export const metadata = {
-  title: 'PolyVoxAI - Dashboard',
-  description: 'Your PolyVoxAI translation dashboard',
+interface Props {
+  children: ReactNode
 }
 
-export default async function DashboardLayout({
-  children,
-}: {
-  children: ReactNode
-}) {
-  const supabase = await createClient()
-  const { data: { session } } = await supabase.auth.getSession()
+export default function DashboardLayout({ children }: Props) {
+  const { isOpen, onOpen, onClose } = useDisclosure()
+  const [mounted, setMounted] = useState(false)
+  const router = useRouter()
+  
+  const bgColor = useColorModeValue('gray.50', 'gray.900')
+  const navBgColor = useColorModeValue('white', 'gray.800')
+  const borderColor = useColorModeValue('gray.200', 'gray.700')
 
-  if (!session) {
-    redirect('/login')
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const handleSignOut = async () => {
+    await signOut({ redirect: false })
+    router.push('/auth/login')
+  }
+
+  if (!mounted) {
+    return null
   }
 
   return (
-    <div className={inter.className}>
-      <div className="flex h-screen bg-gray-100">
-        {/* Sidebar */}
-        <div className="hidden md:flex md:flex-shrink-0">
-          <div className="flex flex-col w-64">
-            <div className="flex flex-col flex-grow pt-5 overflow-y-auto bg-indigo-700">
-              <div className="flex items-center flex-shrink-0 px-4">
-                <span className="text-xl font-semibold text-white">PolyVoxAI</span>
-              </div>
-              <div className="mt-5 flex-1 flex flex-col">
-                <nav className="flex-1 px-2 space-y-1">
-                  <a href="/dashboard" className="text-white group flex items-center px-2 py-2 text-sm font-medium rounded-md bg-indigo-800">
-                    Dashboard
-                  </a>
-                  <a href="/dashboard/translate" className="text-indigo-100 hover:bg-indigo-600 group flex items-center px-2 py-2 text-sm font-medium rounded-md">
-                    Translate
-                  </a>
-                  <a href="/dashboard/downloads" className="text-indigo-100 hover:bg-indigo-600 group flex items-center px-2 py-2 text-sm font-medium rounded-md">
-                    Downloads
-                  </a>
-                </nav>
-              </div>
-              <div className="flex-shrink-0 flex border-t border-indigo-800 p-4">
-                <div className="flex items-center">
-                  <div>
-                    <div className="text-sm font-medium text-white">{session.user.email}</div>
-                    <form action="/auth/signout" method="post">
-                      <button type="submit" className="text-xs font-medium text-indigo-200 group-hover:text-white">
-                        Sign out
-                      </button>
-                    </form>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        {/* Main content */}
-        <div className="flex flex-col flex-1 overflow-hidden">
-          {/* Mobile header */}
-          <div className="md:hidden pl-1 pt-1 sm:pl-3 sm:pt-3 bg-indigo-700 text-white">
-            <button type="button" className="-ml-0.5 -mt-0.5 h-12 w-12 inline-flex items-center justify-center rounded-md text-white hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500">
-              <span className="sr-only">Open sidebar</span>
-              <svg className="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-            <span className="ml-2 text-xl font-semibold">PolyVoxAI</span>
-          </div>
-          
-          {/* Content area */}
-          <main className="flex-1 relative overflow-y-auto focus:outline-none">
-            <div className="py-6">
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+    <Box minH="100vh" bg={bgColor}>
+      <Box
+        bg={navBgColor}
+        px={4}
+        borderBottom="1px"
+        borderColor={borderColor}
+      >
+        <Flex h={16} alignItems="center" justifyContent="space-between">
+          <IconButton
+            size="md"
+            icon={isOpen ? <FiX /> : <FiMenu />}
+            aria-label="Open Menu"
+            display={{ md: 'none' }}
+            onClick={isOpen ? onClose : onOpen}
+          />
+          <HStack spacing={8} alignItems="center">
+            <Box>
+              <Text fontWeight="bold" fontSize="xl">
+                PolyVoxAI
+              </Text>
+            </Box>
+            <HStack as="nav" spacing={4} display={{ base: 'none', md: 'flex' }}>
+              <Link href="/dashboard">
+                <Button variant="ghost">Dashboard</Button>
+              </Link>
+              <Link href="/dashboard/translate">
+                <Button variant="ghost">Translate</Button>
+              </Link>
+              <Link href="/dashboard/downloads">
+                <Button variant="ghost">Downloads</Button>
+              </Link>
+            </HStack>
+          </HStack>
+          <Flex alignItems="center">
+            <Menu>
+              <MenuButton
+                as={Button}
+                rounded="full"
+                variant="link"
+                cursor="pointer"
+                minW={0}
+              >
+                <Avatar
+                  size="sm"
+                  name="User"
+                  src=""
+                />
+              </MenuButton>
+              <MenuList>
+                <MenuItem icon={<FiSettings />}>Settings</MenuItem>
+                <MenuItem icon={<FiLogOut />} onClick={handleSignOut}>
+                  Sign Out
+                </MenuItem>
+              </MenuList>
+            </Menu>
+          </Flex>
+        </Flex>
+
+        {isOpen ? (
+          <Box pb={4} display={{ md: 'none' }}>
+            <Stack as="nav" spacing={4}>
+              <Link href="/dashboard">
+                <Button variant="ghost" w="full">Dashboard</Button>
+              </Link>
+              <Link href="/dashboard/translate">
+                <Button variant="ghost" w="full">Translate</Button>
+              </Link>
+              <Link href="/dashboard/downloads">
+                <Button variant="ghost" w="full">Downloads</Button>
+              </Link>
+            </Stack>
+          </Box>
+        ) : null}
+      </Box>
+
+      <Box p={4}>
                 {children}
-              </div>
-            </div>
-          </main>
-        </div>
-      </div>
-    </div>
+      </Box>
+    </Box>
   )
 }

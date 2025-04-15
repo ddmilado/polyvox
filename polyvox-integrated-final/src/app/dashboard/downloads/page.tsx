@@ -38,25 +38,79 @@ export default function DownloadsPage() {
     try {
       const supabase = createClient()
       
-      const { data, error } = await supabase
-        .storage
-        .from('translations')
-        .download(filePath)
+      if (!filePath) {
+        throw new Error('No file path available for download')
+      }
+
+      // The filePath should already be correct
+      const path = filePath
       
-      if (error) {
-        throw error
+      console.log('Attempting to download file from path:', path)
+      
+      // First, check if the file exists in the database
+      const { data: translation, error: dbError } = await supabase
+        .from('translations')
+        .select('translated_file_path, status, error, user_id')
+        .eq('id', translationId)
+        .single()
+      
+      if (dbError) {
+        console.error('Database error:', dbError)
+        throw new Error(`Failed to fetch translation details: ${dbError.message}`)
       }
       
+      if (!translation) {
+        throw new Error('Translation not found in database')
+      }
+      
+      if (translation.status !== 'completed') {
+        throw new Error(`Translation is not yet completed. Status: ${translation.status}`)
+      }
+      
+      if (translation.error) {
+        throw new Error(`Translation failed: ${translation.error}`)
+      }
+      
+      console.log('Translation details:', translation)
+      
+      // Try to get a signed URL for the file using the service role key
+      const response = await fetch('/api/download', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          path,
+          translationId
+        })
+      })
+      
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to generate download link')
+      }
+      
+      const { signedUrl } = await response.json()
+      
+      if (!signedUrl) {
+        throw new Error('No signed URL generated')
+      }
+      
+      console.log('Generated signed URL:', signedUrl)
+      
       // Create a download link
-      const url = URL.createObjectURL(data)
       const a = document.createElement('a')
-      a.href = url
-      a.download = filePath.split('/').pop() || 'translated-document'
+      a.href = signedUrl
+      a.download = path.split('/').pop() || `translated-${translationId}.txt`
       document.body.appendChild(a)
       a.click()
-      URL.revokeObjectURL(url)
-      document.body.removeChild(a)
+      
+      // Cleanup
+      setTimeout(() => {
+        document.body.removeChild(a)
+      }, 100)
     } catch (error: any) {
+      console.error('Download error:', error)
       setError(error.message || 'Failed to download file')
     }
   }
